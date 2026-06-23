@@ -17,7 +17,7 @@ import {
 import { generateBestOfferExport } from "./best-offer.service";
 import { db } from "../../../db/drizzle";
 import { offerExcelExports, supplierResponses } from "../../../db/schema";
-import { Option } from "lucide-react";
+
 
 export function startEmailWorkers() {
   new Worker(
@@ -51,7 +51,7 @@ export function startEmailWorkers() {
       return result;
     },
     {
-      connection: redisConnection,
+      connection: redisConnection as any,
       concurrency: 1,
       lockDuration: 120_000,
     },
@@ -111,7 +111,7 @@ export function startEmailWorkers() {
       return result;
     },
     {
-      connection: redisConnection,
+      connection: redisConnection as any,
 
       // Start with 2. Increase later if OpenAI/OCR/database can handle it.
       concurrency: Number(process.env.SUPPLIER_ANALYSIS_CONCURRENCY ?? 2),
@@ -131,7 +131,7 @@ export function startEmailWorkers() {
       return await recomputeOfferSupplierRanking(offerId);
     },
     {
-      connection: redisConnection,
+      connection: redisConnection as any,
       concurrency: 2,
       lockDuration: 120_000,
     },
@@ -155,7 +155,7 @@ export function startEmailWorkers() {
       return result;
     },
     {
-      connection: redisConnection,
+      connection: redisConnection as any,
       concurrency: 1,
       lockDuration: 180_000,
     },

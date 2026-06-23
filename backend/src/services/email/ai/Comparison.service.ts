@@ -34,6 +34,7 @@ export async function buildAndExportComparisonExcel(
     with: {
       offerItems: true,
       medicalEntity: true,
+      lots: true,
     },
   });
 
@@ -171,7 +172,7 @@ export async function buildAndExportComparisonExcel(
 
       rows.push({
         product: offerItem.name,
-        lot: offer.lotNumber ?? offer.lotObject ?? "-",
+        lot: offer.lots?.[0]?.lotNumber ?? offer.lots?.[0]?.lotObject ?? "-",
         quantity: offerItem.requestedQuantity,
         unit: null, // not stored on offerItem; left as "U" by default in Excel
 
@@ -209,13 +210,16 @@ export async function buildAndExportComparisonExcel(
 
   const filePath = await generateComparisonExcel({
     offerId,
-    title: buildTitle(offer),
+    title: buildTitle({
+      ...offer,
+      lotNumber: offer.lots?.[0]?.lotNumber ?? null,
+    }),
     rows,
     offerMeta: {
       consultationNumber: offer.consultationNumber,
       establishment: offer.establishment ?? offer.medicalEntity?.name,
-      lotNumber: offer.lotNumber,
-      lotObject: offer.lotObject,
+      lotNumber: offer.lots?.[0]?.lotNumber ?? null,
+      lotObject: offer.lots?.[0]?.lotObject ?? null,
       technicalDepartmentDepositDate: offer.technicalDepartmentDepositDate,
     },
   });

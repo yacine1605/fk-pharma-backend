@@ -35,12 +35,12 @@ import {
 import {
   processOfferAnalysisPipeline,
   recomputeOfferSupplierRanking,
-} from "../services/email/recupere/analysis.pipeline";
+} from "../services/email/ai/analysis.pipeline";
 import {
   generateBestOfferExport,
   selectBestOffersForCahier,
-} from "../services/email/recupere/best-offer.service";
-import { processOfferItemsFromAttachments } from "../services/email/recupere/offer-items-extraction.pipeline";
+} from "../services/email/ai/best-offer.service";
+import { processOfferItemsFromAttachments } from "../services/email/ai/offer-items-extraction.pipeline";
 import { extractUploadedAttachments } from "../middleware/Upload.middleware";
 
 const router: Router = Router();
@@ -852,21 +852,21 @@ router.get(
 
       const sentFiles = offer.attachmentPath
         ? [
-            {
-              uid: `sent:${offer.id}`,
-              id: offer.id,
-              source: "sent",
-              name: offer.attachmentName ?? "Pièce jointe offre",
-              mimeType: offer.attachmentMimeType,
-              size: offer.attachmentSize,
-              downloadUrl: `/api/offers/${offerId}/attachment`,
-              supplierId: null,
-              supplierName: null,
-              responseId: null,
-              attachmentType: "cahier_charge",
-              createdAt: offer.createdAt,
-            },
-          ]
+          {
+            uid: `sent:${offer.id}`,
+            id: offer.id,
+            source: "sent",
+            name: offer.attachmentName ?? "Pièce jointe offre",
+            mimeType: offer.attachmentMimeType,
+            size: offer.attachmentSize,
+            downloadUrl: `/api/offers/${offerId}/attachment`,
+            supplierId: null,
+            supplierName: null,
+            responseId: null,
+            attachmentType: "cahier_charge",
+            createdAt: offer.createdAt,
+          },
+        ]
         : [];
 
       const receivedBySupplier = new Map<
@@ -1188,13 +1188,13 @@ router.get("/:offerId/comparison", requireOfferAccess, async (req, res) => {
         suppliers: suppliersList,
         bestSupplier: bestSupplier
           ? {
-              supplierId: bestSupplier.supplierId,
-              supplierName: bestSupplier.supplierName,
-              globalScore: bestSupplier.globalScore,
-              totalHT: bestSupplier.totalHT,
-              rank: bestSupplier.rank,
-              summary: bestSupplier.summary,
-            }
+            supplierId: bestSupplier.supplierId,
+            supplierName: bestSupplier.supplierName,
+            globalScore: bestSupplier.globalScore,
+            totalHT: bestSupplier.totalHT,
+            rank: bestSupplier.rank,
+            summary: bestSupplier.summary,
+          }
           : null,
       }),
     );

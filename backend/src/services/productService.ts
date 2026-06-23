@@ -64,7 +64,7 @@ export const productService = {
       sku: data.sku || `SKU-${Date.now()}`,
       category: data.category || null,
       description: data.description || null,
-      unitPrice: parseFloat(data.unitPrice),
+      unitPrice: String(data.unitPrice),
       unitMeasure: data.unitMeasure || "UNIT",
       quantity: data.quantity || 0,
       specifications: data.specifications
@@ -81,7 +81,7 @@ export const productService = {
     return result[0];
   },
 
-  async updateProduct(productId: string) {
+  async updateProduct(productId: string, data: any) {
     await this.getProductById(productId);
 
     const updateData: any = {
@@ -92,7 +92,7 @@ export const productService = {
     if (data.sku) updateData.sku = data.sku;
     if (data.category) updateData.category = data.category;
     if (data.description) updateData.description = data.description;
-    if (data.unitPrice) updateData.unitPrice = parseFloat(data.unitPrice);
+    if (data.unitPrice) updateData.unitPrice = String(data.unitPrice);
     if (data.unitMeasure) updateData.unitMeasure = data.unitMeasure;
     if (data.quantity !== undefined) updateData.quantity = data.quantity;
     if (data.specifications)
@@ -109,7 +109,7 @@ export const productService = {
   },
 
   async deleteProduct(productId: string, userId: string) {
-    await this.getProductById(productId, userId);
+    await this.getProductById(productId);
 
     const result = await db
       .update(products)

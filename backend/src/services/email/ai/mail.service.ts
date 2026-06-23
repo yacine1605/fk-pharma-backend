@@ -68,31 +68,32 @@ export async function fetchSupplierEmails() {
 
       console.log("[mail] Unseen UIDs", unseenUids);
 
-      for (const uid of unseenUids) {
-        try {
-          const message = await client.fetchOne(
-            uid,
-            {
-              envelope: true,
-              source: true,
-              uid: true,
-            },
-            {
-              uid: true,
-            },
-          );
-
-          if (!message?.source) {
-            console.warn("[mail] Empty message source", {
+      if (unseenUids && Array.isArray(unseenUids)) {
+        for (const uid of unseenUids) {
+          try {
+            const message = await client.fetchOne(
               uid,
-            });
+              {
+                envelope: true,
+                source: true,
+                uid: true,
+              },
+              {
+                uid: true,
+              },
+            );
 
-            continue;
-          }
+            if (!message || message === false || !message.source) {
+              console.warn("[mail] Empty message source", {
+                uid,
+              });
 
-          fetched += 1;
+              continue;
+            }
 
-          const parsed = await simpleParser(message.source);
+            fetched += 1;
+
+            const parsed = await simpleParser(message.source);
 
           const created = await handleParsedEmail({
             uid: String(uid),
@@ -100,7 +101,7 @@ export async function fetchSupplierEmails() {
               parsed.messageId ?? createMessageIdFallback(uid, parsed.date),
             from: parsed.from?.text ?? "",
             subject: parsed.subject ?? "",
-            text: parsed.text ?? parsed.html?.replace(/<[^>]+>/g, " ") ?? "",
+            text: parsed.text ?? (typeof parsed.html === "string" ? parsed.html.replace(/<[^>]+>/g, " ") : "") ?? "",
             attachments: parsed.attachments.map((attachment) => ({
               filename: attachment.filename,
               contentType: attachment.contentType,
@@ -124,9 +125,10 @@ export async function fetchSupplierEmails() {
           });
         }
       }
-    } finally {
-      lock.release();
     }
+  } finally {
+    lock.release();
+  }
 
     return {
       fetched,

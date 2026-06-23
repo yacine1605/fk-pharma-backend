@@ -18,22 +18,22 @@ router.get("/offers/:offerId/proforma-summary", async (req, res) => {
   try {
     const { offerId } = req.params;
 
-    const offer = await db.query.offers.findFirst({
+    const offer = (await db.query.offers.findFirst({
       where: eq(offers.id, offerId),
       with: {
         offerSuppliers: {
           with: {
             supplier: true,
-            supplierResponse: {
+            responses: {
               with: {
-                proforma: true,
+                proformas: true,
               },
             },
           },
         },
         offerItems: true,
       },
-    });
+    })) as any;
 
     if (!offer) {
       return res.status(404).json({ error: "Offer not found" });
@@ -42,18 +42,19 @@ router.get("/offers/:offerId/proforma-summary", async (req, res) => {
     const totalSuppliers = offer.offerSuppliers.length;
     const totalItems = offer.offerItems.length;
 
-    const proformasReceived = offer.offerSuppliers.filter((os) => {
+    const proformasReceived = offer.offerSuppliers.filter((os: any) => {
+      const resp = os.responses?.[0];
       return (
-        os.supplierResponse?.status === "analyzed" ||
-        os.supplierResponse?.status === "needs_review"
+        resp?.status === "analyzed" ||
+        resp?.status === "needs_review"
       );
     }).length;
 
     const proformasPending = totalSuppliers - proformasReceived;
 
-    const suppliersWithDetails = offer.offerSuppliers.map((os) => {
-      const response = os.supplierResponse;
-      const proforma = response?.proforma;
+    const suppliersWithDetails = offer.offerSuppliers.map((os: any) => {
+      const response = os.responses?.[0];
+      const proforma = response?.proformas?.[0];
 
       return {
         supplierId: os.supplierId,

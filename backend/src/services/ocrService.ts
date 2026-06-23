@@ -109,7 +109,7 @@ Extrais tous les produits en JSON.`;
   }));
 }
 
-async function extractProductsFromPDF(pdfBuffer: Buffer, supplierName: string): Promise<any[]> {
+export async function extractProductsFromPDF(pdfBuffer: Buffer, supplierName: string): Promise<any[]> {
   let rawText = "";
 
   try {
@@ -145,5 +145,3 @@ async function extractProductsFromPDF(pdfBuffer: Buffer, supplierName: string): 
 
   return structureWithAI(rawText, supplierName);
 }
-
-module.exports = { extractProductsFromPDF };

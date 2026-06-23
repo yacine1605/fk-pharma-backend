@@ -1,0 +1,96 @@
+import OpenAI from "openai";
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
+// ─────────────────────────────────────────────
+// PROMPT
+// ─────────────────────────────────────────────
+export function buildProformaPrompt(text) {
+    return `
+Tu es un assistant d'extraction de données depuis une facture proforma médicale.
+
+Retourne uniquement un JSON valide, sans markdown.
+
+Texte du document :
+${text}
+
+Format obligatoire :
+{
+  "documentType": "proforma",
+  "supplierName": null,
+  "proformaNumber": null,
+  "proformaDate": null,
+  "customerName": null,
+  "totalHT": null,
+  "totalTVA": null,
+  "stampDuty": null,
+  "totalTTC": null,
+  "currency": "DZD",
+  "paymentTerms": null,
+  "validityText": null,
+  "validityDays": null,
+  "lines": [
+    {
+      "lineNumber": 1,
+      "code": null,
+      "designation": "",
+      "brand": null,
+      "quantity": null,
+      "unitPriceHT": null,
+      "discountPercentage": null,
+      "totalHT": null,
+      "tvaPercentage": null
+    }
+  ],
+  "confidence": 0
+}
+
+Règles générales :
+- Retourne uniquement du JSON brut.
+- Ne jamais ajouter de markdown.
+- Convertis les montants algériens en nombres.
+- Exemple : "2 846 020.00" devient 2846020.
+- Les dates doivent être au format YYYY-MM-DD.
+- Si une donnée est absente, mets null.
+- Ne pas inventer les valeurs.
+- confidence doit être un nombre entre 0 et 1.
+- designation est obligatoire pour chaque ligne.
+
+Règles très importantes pour les tableaux :
+- La colonne "N°" ou "No" correspond à lineNumber.
+- La colonne "CODE" correspond à code.
+- La colonne "DÉSIGNATION" correspond à designation.
+- La colonne "QTE", "QTÉ" ou "QUANTITÉ" correspond à quantity.
+- La colonne "PU HT" correspond à unitPriceHT.
+- La colonne "RIS.%", "REM.%", "REMISE" correspond à discountPercentage.
+- La colonne "MONTANT HT" correspond à totalHT.
+- La colonne "TVA" correspond à tvaPercentage.
+- Ne mets jamais la valeur TVA dans discountPercentage.
+- Ne mets jamais la valeur RIS.% dans tvaPercentage.
+- Si RIS.% vaut "-" ou est vide, mets discountPercentage à 0.
+- Si TVA vaut 19, tvaPercentage doit être 19.
+- Si TVA vaut 0, tvaPercentage doit être 0.
+
+Règles de contrôle :
+- Si quantity * unitPriceHT = totalHT, garde ces valeurs.
+- Si totalHT est clairement écrit dans le tableau, privilégie la valeur écrite.
+- Ne confonds pas totalHT et totalTTC.
+`;
+}
+// ─────────────────────────────────────────────
+// SAFE PARSE
+// ─────────────────────────────────────────────
+export function safeParseProforma(content) {
+    try {
+        const cleaned = content
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+        return JSON.parse(cleaned);
+    }
+    catch (error) {
+        console.error("JSON parse error:", error);
+        return null;
+    }
+}
+//# sourceMappingURL=AiProformaExtraction.js.map

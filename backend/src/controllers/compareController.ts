@@ -1,5 +1,76 @@
 import fs from "fs";
 import { Request, Response } from "express";
+import { extractProductsFromPDF } from "../services/ocrService";
+
+function cleanString(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove accents
+    .replace(/[^a-z0-9]/g, " ")     // replace punctuation with spaces
+    .replace(/\s+/g, " ")           // collapse spaces
+    .trim();
+}
+
+function calculateSimilarity(str1: string, str2: string): number {
+  const words1 = cleanString(str1).split(" ").filter(w => w.length > 1);
+  const words2 = cleanString(str2).split(" ").filter(w => w.length > 1);
+
+  if (words1.length === 0 || words2.length === 0) return 0;
+
+  const set1 = new Set(words1);
+  const set2 = new Set(words2);
+
+  let intersectionCount = 0;
+  for (const w of set1) {
+    if (set2.has(w)) intersectionCount++;
+  }
+
+  return (2 * intersectionCount) / (set1.size + set2.size);
+}
+
+function matchSupplier(referenceItems: any[], supplierItems: any[]): any[] {
+  const results: any[] = [];
+  const matchedSupplierItemIds = new Set<string>();
+
+  for (const ref of referenceItems) {
+    let bestMatch: any = null;
+    let maxSim = 0;
+
+    for (const sup of supplierItems) {
+      if (matchedSupplierItemIds.has(sup.id)) continue;
+
+      const sim = calculateSimilarity(ref.designation, sup.designation);
+      if (sim > maxSim) {
+        maxSim = sim;
+        bestMatch = sup;
+      }
+    }
+
+    const threshold = 0.35;
+    if (bestMatch && maxSim >= threshold) {
+      matchedSupplierItemIds.add(bestMatch.id);
+      const compatibility = Math.round(maxSim * 100);
+      results.push({
+        referenceItem: ref,
+        supplierItem: bestMatch,
+        compatibility,
+        status: compatibility >= 70 ? "matched" : "partial",
+        reasons: compatibility >= 70 ? [] : ["Désignation légèrement différente"],
+      });
+    } else {
+      results.push({
+        referenceItem: ref,
+        supplierItem: null,
+        compatibility: 0,
+        status: "missing",
+        reasons: ["Aucun produit correspondant trouvé"],
+      });
+    }
+  }
+
+  return results;
+}
 
 /**
  * POST /api/ai/compare-proformas
@@ -16,10 +87,11 @@ export async function compareProformas(
 ): Promise<Response> {
   try {
     const supplierNames: string[] = req.body.supplierNames || [];
+    const files = req.files as any;
     const supplierFiles: Express.Multer.File[] =
-      req.files?.["supplierFiles"] || [];
+      (files && files["supplierFiles"]) || [];
     const referenceFile: Express.Multer.File | undefined =
-      req.files?.["referenceFile"]?.[0];
+      (files && files["referenceFile"]?.[0]);
     const backendAttachmentUrl: string | undefined =
       req.body.backendAttachmentUrl;
 

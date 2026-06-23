@@ -1,7 +1,7 @@
 import IORedis from "ioredis";
 
 export const redis = new IORedis({
-  host: "192.168.1.8", // home machine running Docker
-  port: 6379,
+  host: process.env.REDIS_HOST || "127.0.0.1",
+  port: parseInt(process.env.REDIS_PORT || "6379"),
   maxRetriesPerRequest: null,
 });

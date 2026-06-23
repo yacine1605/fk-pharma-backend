@@ -650,7 +650,7 @@ function mergeChunkResults(acc: any, chunk: any): any {
     );
 
     for (const lot of t.lots) {
-      const existing = existingMap.get(lot.number);
+      const existing: any = existingMap.get(lot.number);
 
       if (!existing) {
         const normalizedLot = {

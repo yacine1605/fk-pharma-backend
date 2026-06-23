@@ -64,8 +64,8 @@ export const accountingService = {
       description: data.description,
       referenceType: data.referenceType || null,
       referenceId: data.referenceId || null,
-      totalDebits: parseFloat(totalDebits.toString()),
-      totalCredits: parseFloat(totalCredits.toString()),
+      totalDebits: String(totalDebits),
+      totalCredits: String(totalCredits),
       isPosted: false,
       notes: data.notes || null,
       createdAt: new Date(),
@@ -84,8 +84,8 @@ export const accountingService = {
       await db.insert(journalEntryLines).values({
         entryId,
         accountId: line.accountId,
-        debit: line.debit ? parseFloat(line.debit) : 0,
-        credit: line.credit ? parseFloat(line.credit) : 0,
+        debit: String(line.debit || 0),
+        credit: String(line.credit || 0),
         description: line.description || null,
         notes: line.notes || null,
       });

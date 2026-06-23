@@ -82,8 +82,8 @@ const COLORS = {
 function headerStyle(
   ws: ExcelJS.Worksheet,
   cell: ExcelJS.Cell,
-  bg = COLORS.headerBg,
-  fg = COLORS.headerFg,
+  bg: string = COLORS.headerBg,
+  fg: string = COLORS.headerFg,
 ) {
   cell.font = { bold: true, color: { argb: fg }, size: 10, name: "Arial" };
   cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };

@@ -1,8 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../../db/drizzle";
 import { offers, offerSuppliers, suppliers } from "../../db/schema";
-import { sendEmail } from "./email.service";
-import { buildCompanySignature } from "../email/recupere/signature-builder";
+import { sendEmail } from "./emailService";
+import { buildCompanySignature } from "../email/ai/signature-builder";
 
 export async function sendCommercialOfferService({
   offerId,

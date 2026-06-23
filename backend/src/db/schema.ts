@@ -101,6 +101,37 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "manual_review_required",
   "deadline_reminder",
   "deadline_expired",
+  "changement_statut_appel",
+  "rfq_envoye",
+  "fournisseur_attribue",
+  "budget_depasse",
+  "soumission_prete",
+  "checklist_item_complete",
+]);
+
+export const tenderDocStatusEnum = pgEnum("tender_doc_status", [
+  "uploaded",
+  "processing",
+  "extracted",
+  "failed",
+]);
+
+export const tenderStatusEnum = pgEnum("tender_status", [
+  "brouillon",
+  "publie",
+  "rfq_envoye",
+  "reponses_recues",
+  "evalue",
+  "attribue",
+  "contracte",
+  "annule",
+]);
+
+export const tenderTypeEnum = pgEnum("tender_type", [
+  "national",
+  "international",
+  "restreint",
+  "consultation",
 ]);
 
 // Users table
@@ -127,7 +158,7 @@ export const suppliers = pgTable(
   "suppliers",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    name: varchar("name", { length: 255 }).notNull().default("TEST_CHANGE"),
+    name: varchar("name", { length: 255 }).notNull(),
     registrationNumber: varchar("registration_number", { length: 100 }),
     businessType: varchar("business_type", { length: 255 }),
     address: text("address"),
@@ -352,11 +383,12 @@ export const supplierResponseAttachments = pgTable(
     extractedText: text("extracted_text"),
     extractionMetadata: jsonb("extraction_metadata")
       .$type<{
-        method?: "pdf_text" | "ocr" | "docx" | "image_ocr";
+        method?: "pdf_text" | "ocr" | "docx" | "image_ocr" | "excel";
         language?: string;
         confidence?: number;
         pages?: number;
         errors?: string[];
+        aiClassification?: any;
       }>()
       .default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -713,6 +745,14 @@ export const offers = pgTable(
 
     // ── Audit commercial ──
     supplierCommercialAudit: text("supplier_commercial_audit"),
+
+    // ── Tender lifecycle (state machine) ──
+    tenderStatus: tenderStatusEnum("tender_status").default("brouillon"),
+    tenderType: tenderTypeEnum("tender_type"),
+    tenderReference: varchar("tender_reference", { length: 255 }),
+    tenderPublishedAt: timestamp("tender_published_at", { withTimezone: true }),
+    tenderAwardedAt: timestamp("tender_awarded_at", { withTimezone: true }),
+    estimatedBudget: decimal("estimated_budget", { precision: 14, scale: 2 }),
   },
   (table) => ({
     medicalEntityIdx: index("offers_medical_entity_id_idx").on(
@@ -923,6 +963,9 @@ export const offersRelations = relations(offers, ({ one, many }) => ({
   deadlines: many(offerDeadlines),
   finalSelections: many(offerFinalSelections),
   documentFolders: many(offerDocumentFolders),
+  tenderDocuments: many(tenderDocuments),
+  tenderAuditLog: many(tenderAuditLog),
+  tenderChecklist: many(tenderChecklist),
 }));
 
 export const offerItemsRelations = relations(offerItems, ({ one, many }) => ({
@@ -1254,12 +1297,171 @@ export const offerDocumentFolders = pgTable(
   ],
 );
 
+// ─── Tender Documents (Cahier des charges uploads) ────────────────────────────
+
+export const tenderDocuments = pgTable(
+  "tender_documents",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    offerId: uuid("offer_id")
+      .notNull()
+      .references(() => offers.id, { onDelete: "cascade" }),
+    fileName: varchar("file_name", { length: 255 }).notNull(),
+    filePath: text("file_path").notNull(),
+    mimeType: varchar("mime_type", { length: 120 }),
+    fileSize: integer("file_size"),
+    status: tenderDocStatusEnum("status").notNull().default("uploaded"),
+    extractedText: text("extracted_text"),
+    extractedJson: jsonb("extracted_json")
+      .$type<{
+        products?: {
+          itemNumber: number;
+          code?: string;
+          designation: string;
+          quantity: number;
+          unite?: string;
+          specifications?: string[];
+        }[];
+        deadlines?: {
+          dateLimiteDepot?: string;
+          dateLimiteSoumission?: string;
+          dateOuverturePlis?: string;
+          autresDelais?: { label: string; date: string }[];
+        };
+        administrativeDocuments?: string[];
+        prescriptionsTechniques?: string;
+        consultationNumber?: string;
+        wilaya?: string;
+        etablissement?: string;
+        objet?: string;
+        confidence?: number;
+      }>()
+      .default({}),
+    pageCount: integer("page_count"),
+    ocrRequired: boolean("ocr_required").default(false),
+    ocrDone: boolean("ocr_done").default(false),
+    confidence: real("confidence").default(0),
+    errorMessage: text("error_message"),
+    uploadedBy: uuid("uploaded_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("tender_documents_offer_id_idx").on(table.offerId),
+    index("tender_documents_status_idx").on(table.status),
+  ],
+);
+
+export type TenderDocument = typeof tenderDocuments.$inferSelect;
+export type NewTenderDocument = typeof tenderDocuments.$inferInsert;
+
+// ─── Tender Audit Log ─────────────────────────────────────────────────────────
+
+export const tenderAuditLog = pgTable(
+  "tender_audit_log",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    offerId: uuid("offer_id")
+      .notNull()
+      .references(() => offers.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    fromStatus: varchar("from_status", { length: 80 }),
+    toStatus: varchar("to_status", { length: 80 }).notNull(),
+    action: varchar("action", { length: 255 }).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("tender_audit_log_offer_id_idx").on(table.offerId),
+    index("tender_audit_log_created_at_idx").on(table.createdAt),
+  ],
+);
+
+// ─── Tender Checklist ────────────────────────────────────────────────────────
+
+export const tenderChecklist = pgTable(
+  "tender_checklist",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    offerId: uuid("offer_id")
+      .notNull()
+      .references(() => offers.id, { onDelete: "cascade" }),
+    checklistItem: text("checklist_item").notNull(),
+    category: varchar("category", { length: 120 }).notNull().default("général"),
+    isRequired: boolean("is_required").notNull().default(true),
+    isCompleted: boolean("is_completed").notNull().default(false),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    completedBy: uuid("completed_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("tender_checklist_offer_id_idx").on(table.offerId),
+    index("tender_checklist_completed_idx").on(table.isCompleted),
+  ],
+);
+
+export type TenderChecklist = typeof tenderChecklist.$inferSelect;
+
 export const offerExcelExportsRelations = relations(
   offerExcelExports,
   ({ one }) => ({
     offer: one(offers, {
       fields: [offerExcelExports.offerId],
       references: [offers.id],
+    }),
+  }),
+);
+
+export const tenderDocumentsRelations = relations(
+  tenderDocuments,
+  ({ one }) => ({
+    offer: one(offers, {
+      fields: [tenderDocuments.offerId],
+      references: [offers.id],
+    }),
+    uploadedBy: one(users, {
+      fields: [tenderDocuments.uploadedBy],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const tenderAuditLogRelations = relations(
+  tenderAuditLog,
+  ({ one }) => ({
+    offer: one(offers, {
+      fields: [tenderAuditLog.offerId],
+      references: [offers.id],
+    }),
+    user: one(users, {
+      fields: [tenderAuditLog.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const tenderChecklistRelations = relations(
+  tenderChecklist,
+  ({ one }) => ({
+    offer: one(offers, {
+      fields: [tenderChecklist.offerId],
+      references: [offers.id],
+    }),
+    completedByUser: one(users, {
+      fields: [tenderChecklist.completedBy],
+      references: [users.id],
     }),
   }),
 );

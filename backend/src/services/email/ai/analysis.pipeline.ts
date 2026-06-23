@@ -115,9 +115,9 @@ export async function processSupplierResponsePipeline(
   supplierResponseId: string,
   options: { force?: boolean },
 ): Promise<PipelineResult> {
-  const allowedStatuses = options.force
+  const allowedStatuses = (options.force
     ? ["received", "needs_review", "analyzed"]
-    : ["received", "needs_review"];
+    : ["received", "needs_review"]) as any[];
 
   const [claimed] = await db
     .update(supplierResponses)
@@ -423,7 +423,7 @@ export async function processSupplierResponsePipeline(
           normalizedConformityResult.mandatoryMissingCount ?? 0,
         isTechnicallyCompliant:
           normalizedConformityResult.isTechnicallyCompliant ?? false,
-        analysisDetails: normalizedConformityResult.details ?? [],
+        analysisDetails: (normalizedConformityResult.details ?? []) as any,
         aiSummary: normalizedConformityResult.summary,
         aiRecommendation: normalizedConformityResult.recommendation,
       });
@@ -788,6 +788,7 @@ function matchProformaLineToOfferItem(
     code: string | null;
     name: string;
     description: string | null;
+    requestedQuantity: number;
     technicalRequirements?: unknown;
   }[],
 ) {

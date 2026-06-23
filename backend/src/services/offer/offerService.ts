@@ -333,7 +333,7 @@ export async function createAndSendOffer(
     selectedSuppliers.map(async (supplier) => {
       try {
         await sendEmail({
-          to: supplier.email,
+          to: supplier.email || "",
           subject: resolvedSubject,
           body: resolvedBody,
           signature: dto.emailSignature,
@@ -352,7 +352,7 @@ export async function createAndSendOffer(
         details.push({
           type: "supplier",
           recipientId: supplier.id,
-          recipientEmail: supplier.email,
+          recipientEmail: supplier.email || "",
           status: "sent",
         });
       } catch (error) {
@@ -371,7 +371,7 @@ export async function createAndSendOffer(
         details.push({
           type: "supplier",
           recipientId: supplier.id,
-          recipientEmail: supplier.email,
+          recipientEmail: supplier.email || "",
           status: "failed",
           error: message,
         });
@@ -383,7 +383,7 @@ export async function createAndSendOffer(
   const totalSent = sentInternal + sentSuppliers;
   const totalFailed = failedInternal + failedSuppliers;
   const finalStatus =
-    totalFailed === 0 ? "sent" : totalSent === 0 ? "failed" : "partially_sent";
+    totalFailed === 0 ? "sent" : totalSent === 0 ? "failed" : "partial_failed";
 
   await db
     .update(offers)
@@ -438,12 +438,10 @@ export async function saveOfferDraft(dto: CreateOfferDTO): Promise<string> {
       title: dto.offerTitle,
       medicalEntityId: entityId,
       sourceOfferId: dto.sourceOfferId ?? null,
-      selectedTemplateId: dto.selectedTemplateId ?? null,
       emailSubject: dto.emailSubject,
       emailBody: dto.emailBody,
       emailSignature: dto.emailSignature,
       attachmentPath: firstAtt?.filePath ?? dto.attachmentPath ?? null,
-      attachmentUrl: dto.attachmentUrl ?? null,
       attachmentName: firstAtt?.fileName ?? dto.attachmentName ?? null,
       attachmentSize: firstAtt?.fileSize ?? dto.attachmentSize ?? null,
       attachmentMimeType: firstAtt?.mimeType ?? dto.attachmentMimeType ?? null,
