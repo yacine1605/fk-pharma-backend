@@ -1,4 +1,3 @@
-"use strict";
 const pdfParse = require("pdf-parse");
 const { OpenAI } = require("openai");
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -97,7 +96,7 @@ Extrais tous les produits en JSON.`;
         page: toNumber(p.page) || 1,
     }));
 }
-async function extractProductsFromPDF(pdfBuffer, supplierName) {
+export async function extractProductsFromPDF(pdfBuffer, supplierName) {
     let rawText = "";
     try {
         const parsed = await pdfParse(pdfBuffer);
@@ -125,5 +124,4 @@ async function extractProductsFromPDF(pdfBuffer, supplierName) {
     }
     return structureWithAI(rawText, supplierName);
 }
-module.exports = { extractProductsFromPDF };
 //# sourceMappingURL=ocrService.js.map

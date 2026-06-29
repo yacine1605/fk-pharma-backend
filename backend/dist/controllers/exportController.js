@@ -1,3 +1,66 @@
+import ExcelJS from "exceljs";
+import PDFDocument from "pdfkit";
+async function generateComparisonExcel(payload) {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Comparaison");
+    worksheet.columns = [
+        { header: "Fournisseur", key: "name", width: 25 },
+        { header: "Produit", key: "product", width: 35 },
+        { header: "Quantité", key: "quantity", width: 12 },
+        { header: "Prix Unitaire HT", key: "unitPrice", width: 15 },
+        { header: "Total HT", key: "totalHT", width: 15 },
+        { header: "Conformité %", key: "conformity", width: 15 },
+    ];
+    if (payload.suppliers && Array.isArray(payload.suppliers)) {
+        payload.suppliers.forEach((s) => {
+            if (s.matches && Array.isArray(s.matches)) {
+                s.matches.forEach((m) => {
+                    worksheet.addRow({
+                        name: s.supplierName || "",
+                        product: m.supplierItem?.designation || m.referenceItem?.designation || "",
+                        quantity: m.supplierItem?.quantity || m.referenceItem?.quantity || 0,
+                        unitPrice: m.supplierItem?.unitPrice || 0,
+                        totalHT: m.supplierItem?.totalPrice || 0,
+                        conformity: m.compatibility || 0,
+                    });
+                });
+            }
+        });
+    }
+    return workbook.xlsx.writeBuffer();
+}
+async function generateComparisonPDF(payload) {
+    return new Promise((resolve, reject) => {
+        const doc = new PDFDocument();
+        const buffers = [];
+        doc.on("data", (chunk) => buffers.push(chunk));
+        doc.on("end", () => resolve(Buffer.concat(buffers)));
+        doc.on("error", (err) => reject(err));
+        doc.fontSize(20).text("Rapport de Comparaison des Offres", 100, 50);
+        doc.fontSize(10).text(`Généré le: ${payload.generatedAt || new Date().toLocaleDateString()}`, 100, 80);
+        doc.text(`Titre de l'offre: ${payload.offerTitle || "N/A"}`, 100, 95);
+        doc.moveDown();
+        if (payload.suppliers && Array.isArray(payload.suppliers)) {
+            payload.suppliers.forEach((s) => {
+                doc.fontSize(12).text(`Fournisseur: ${s.supplierName || "Nom inconnu"}`, { underline: true });
+                doc.moveDown(0.5);
+                if (s.matches && Array.isArray(s.matches)) {
+                    s.matches.forEach((m) => {
+                        const refName = m.referenceItem?.designation || "Inconnu";
+                        const supName = m.supplierItem?.designation || "Non proposé";
+                        const price = m.supplierItem?.unitPrice ? `${m.supplierItem.unitPrice} DZD` : "N/A";
+                        const comp = m.compatibility != null ? `${m.compatibility}%` : "0%";
+                        doc.fontSize(10).text(`  - Ref: ${refName}`);
+                        doc.text(`    Proposé: ${supName} | Prix: ${price} | Conformité: ${comp}`);
+                        doc.moveDown(0.2);
+                    });
+                }
+                doc.moveDown();
+            });
+        }
+        doc.end();
+    });
+}
 /**
  * POST /api/exports/comparison-excel
  * Body: { offerTitle, generatedAt, suppliers }

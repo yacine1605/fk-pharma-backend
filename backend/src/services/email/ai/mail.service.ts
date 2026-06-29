@@ -83,7 +83,7 @@ export async function fetchSupplierEmails() {
               },
             );
 
-            if (!message || message === false || !message.source) {
+            if (!message || !message.source) {
               console.warn("[mail] Empty message source", {
                 uid,
               });

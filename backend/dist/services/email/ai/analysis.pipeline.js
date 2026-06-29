@@ -7,7 +7,7 @@ import { ocrImage } from "./image-ocr";
 import { buildProformaPrompt, safeParseProforma } from "./AiProformaExtraction";
 import { buildConformityPrompt, detectProductFamily, safeParseConformity, similarityScore, genericEquivalenceScore, areGenericEquivalent, } from "./AiConformityResult";
 import { classifyAttachmentWithAI } from "./AiAttachmentClassifier";
-import { supplierAnalysisQueue } from "./queues";
+import { documentVerificationQueue, supplierAnalysisQueue } from "./queues";
 import { calculateConditionsScore } from "./conditions-score.service";
 import { extractTextFromDocx, extractTextSmart, extractTextFromExcel, } from "./exctraction";
 const openai = new OpenAI({
@@ -433,6 +433,27 @@ async function extractAttachmentsText(response) {
                 attachmentType,
                 text,
             });
+            // Auto-enqueue stamp verification for proforma attachments
+            if (attachmentType === "proforma") {
+                try {
+                    await documentVerificationQueue.add("verify-document-stamp", {
+                        filePath: attachment.filePath,
+                        fileName: attachment.originalFileName,
+                        mimeType: attachment.mimeType ?? "application/pdf",
+                        documentType: "supplier_attachment",
+                        referenceId: attachment.id,
+                    }, {
+                        jobId: `verify-att-${attachment.id}`,
+                        attempts: 2,
+                        backoff: { type: "exponential", delay: 15000 },
+                        removeOnComplete: 200,
+                        removeOnFail: 200,
+                    });
+                }
+                catch (enqueueErr) {
+                    console.warn("[PIPELINE] Failed to enqueue stamp verification for attachment:", attachment.id, enqueueErr);
+                }
+            }
         }
         catch (error) {
             console.error("[ATTACHMENT EXTRACTION ERROR]", {

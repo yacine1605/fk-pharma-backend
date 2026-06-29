@@ -15,6 +15,7 @@ import {
   extractTextFromExcel,
 } from "../email/ai/exctraction";
 import { ocrImage } from "../email/ai/image-ocr";
+import { documentVerificationQueue } from "../email/ai/queues";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const MODEL = "gpt-4o";
@@ -111,6 +112,38 @@ export async function processTenderDocument(
 
     // 6. Auto-update offer header fields if found
     await updateOfferMetadata(doc.offerId, extracted);
+
+    // 7. Auto-enqueue stamp verification
+    try {
+      await documentVerificationQueue.add(
+        "verify-document-stamp",
+        {
+          filePath: doc.filePath,
+          fileName: doc.fileName,
+          mimeType: doc.mimeType ?? "application/pdf",
+          documentType: "tender_document",
+          referenceId: documentId,
+          offerId: doc.offerId,
+          verifiedBy: doc.uploadedBy ?? undefined,
+        },
+        {
+          jobId: `verify-tender-${documentId}`,
+          attempts: 2,
+          backoff: { type: "exponential", delay: 15_000 },
+          removeOnComplete: 200,
+          removeOnFail: 200,
+        },
+      );
+
+      console.log(
+        `[TENDER-EXTRACTION] Stamp verification enqueued for doc ${documentId}`,
+      );
+    } catch (enqueueErr) {
+      console.warn(
+        "[TENDER-EXTRACTION] Failed to enqueue stamp verification:",
+        enqueueErr,
+      );
+    }
 
     return {
       documentId,

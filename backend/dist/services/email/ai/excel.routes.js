@@ -13,7 +13,7 @@ const router = express.Router();
 router.get("/offers/:offerId/proforma-summary", async (req, res) => {
     try {
         const { offerId } = req.params;
-        const offer = await db.query.offers.findFirst({
+        const offer = (await db.query.offers.findFirst({
             where: eq(offers.id, offerId),
             with: {
                 offerSuppliers: {
@@ -21,14 +21,14 @@ router.get("/offers/:offerId/proforma-summary", async (req, res) => {
                         supplier: true,
                         responses: {
                             with: {
-                                proforma: true,
+                                proformas: true,
                             },
                         },
                     },
                 },
                 offerItems: true,
             },
-        });
+        }));
         if (!offer) {
             return res.status(404).json({ error: "Offer not found" });
         }
@@ -42,7 +42,7 @@ router.get("/offers/:offerId/proforma-summary", async (req, res) => {
         const proformasPending = totalSuppliers - proformasReceived;
         const suppliersWithDetails = offer.offerSuppliers.map((os) => {
             const response = os.responses?.[0];
-            const proforma = response?.proforma;
+            const proforma = response?.proformas?.[0];
             return {
                 supplierId: os.supplierId,
                 supplierName: os.supplier.name,

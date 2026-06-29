@@ -28,7 +28,7 @@ import {
 } from "./AiConformityResult";
 
 import { classifyAttachmentWithAI } from "./AiAttachmentClassifier";
-import { supplierAnalysisQueue } from "./queues";
+import { documentVerificationQueue, supplierAnalysisQueue } from "./queues";
 
 import { calculateConditionsScore } from "./conditions-score.service";
 
@@ -614,6 +614,35 @@ async function extractAttachmentsText(response: {
         attachmentType,
         text,
       });
+
+      // Auto-enqueue stamp verification for proforma attachments
+      if (attachmentType === "proforma") {
+        try {
+          await documentVerificationQueue.add(
+            "verify-document-stamp",
+            {
+              filePath: attachment.filePath,
+              fileName: attachment.originalFileName,
+              mimeType: attachment.mimeType ?? "application/pdf",
+              documentType: "supplier_attachment",
+              referenceId: attachment.id,
+            },
+            {
+              jobId: `verify-att-${attachment.id}`,
+              attempts: 2,
+              backoff: { type: "exponential", delay: 15_000 },
+              removeOnComplete: 200,
+              removeOnFail: 200,
+            },
+          );
+        } catch (enqueueErr) {
+          console.warn(
+            "[PIPELINE] Failed to enqueue stamp verification for attachment:",
+            attachment.id,
+            enqueueErr,
+          );
+        }
+      }
     } catch (error) {
       console.error("[ATTACHMENT EXTRACTION ERROR]", {
         attachmentId: attachment.id,

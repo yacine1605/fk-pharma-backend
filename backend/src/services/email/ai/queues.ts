@@ -29,3 +29,7 @@ export const bestOfferExcelQueue = new Queue("best-offer-excel", {
 export const tenderExtractionQueue = new Queue("tender-extraction", {
   connection: redisConnection as any,
 });
+
+export const documentVerificationQueue = new Queue("document-verification", {
+  connection: redisConnection as any,
+});

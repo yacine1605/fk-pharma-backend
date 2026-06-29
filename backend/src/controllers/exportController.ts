@@ -32,7 +32,7 @@ async function generateComparisonExcel(payload: any): Promise<Buffer> {
     });
   }
 
-  return workbook.xlsx.writeBuffer() as Promise<Buffer>;
+  return workbook.xlsx.writeBuffer() as unknown as Promise<Buffer>;
 }
 
 async function generateComparisonPDF(payload: any): Promise<Buffer> {

@@ -133,6 +133,12 @@ export declare function getOfferById(id: string): Promise<{
     submissionBond: boolean | null;
     goodExecutionBond: boolean | null;
     supplierCommercialAudit: string | null;
+    tenderStatus: "rfq_envoye" | "brouillon" | "publie" | "reponses_recues" | "evalue" | "attribue" | "contracte" | "annule" | null;
+    tenderType: "consultation" | "national" | "international" | "restreint" | null;
+    tenderReference: string | null;
+    tenderPublishedAt: Date | null;
+    tenderAwardedAt: Date | null;
+    estimatedBudget: string | null;
     offerRecipients: {
         id: string;
         createdAt: Date;
@@ -291,6 +297,12 @@ export declare function listOffers(): Promise<{
     submissionBond: boolean | null;
     goodExecutionBond: boolean | null;
     supplierCommercialAudit: string | null;
+    tenderStatus: "rfq_envoye" | "brouillon" | "publie" | "reponses_recues" | "evalue" | "attribue" | "contracte" | "annule" | null;
+    tenderType: "consultation" | "national" | "international" | "restreint" | null;
+    tenderReference: string | null;
+    tenderPublishedAt: Date | null;
+    tenderAwardedAt: Date | null;
+    estimatedBudget: string | null;
     offerRecipients: {
         id: string;
         createdAt: Date;

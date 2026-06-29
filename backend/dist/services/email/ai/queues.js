@@ -16,4 +16,10 @@ export const offerRankingQueue = new Queue("offer-ranking", {
 export const bestOfferExcelQueue = new Queue("best-offer-excel", {
     connection: redisConnection,
 });
+export const tenderExtractionQueue = new Queue("tender-extraction", {
+    connection: redisConnection,
+});
+export const documentVerificationQueue = new Queue("document-verification", {
+    connection: redisConnection,
+});
 //# sourceMappingURL=queues.js.map

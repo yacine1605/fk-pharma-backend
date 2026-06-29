@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { fetchSupplierEmails } from "./mail.service";
 import {
   bestOfferExcelQueue,
+  documentVerificationQueue,
   mailFetchQueue,
   offerRankingQueue,
   redisConnection,
@@ -16,7 +17,13 @@ import {
 } from "./analysis.pipeline";
 import { generateBestOfferExport } from "./best-offer.service";
 import { db } from "../../../db/drizzle";
-import { offerExcelExports, supplierResponses } from "../../../db/schema";
+import {
+  documentVerifications,
+  notifications,
+  offerExcelExports,
+  supplierResponses,
+} from "../../../db/schema";
+import { analyzeDocumentForStamp } from "../../document-verification.service";
 
 
 export function startEmailWorkers() {
@@ -158,6 +165,108 @@ export function startEmailWorkers() {
       connection: redisConnection as any,
       concurrency: 1,
       lockDuration: 180_000,
+    },
+  );
+
+  // ── Document Verification Worker ──────────────────────────────────────────
+  new Worker(
+    documentVerificationQueue.name,
+    async (job) => {
+      const {
+        filePath,
+        fileName,
+        mimeType,
+        documentType,
+        referenceId,
+        verifiedBy,
+        offerId,
+        supplierId,
+        supplierResponseId,
+      } = job.data as {
+        filePath: string;
+        fileName: string;
+        mimeType: string;
+        documentType: string;
+        referenceId?: string;
+        verifiedBy?: string;
+        offerId?: string;
+        supplierId?: string;
+        supplierResponseId?: string;
+      };
+
+      console.log(
+        `[DOC-VERIFY-WORKER] Analyzing ${fileName} (${documentType})`,
+      );
+
+      const result = await analyzeDocumentForStamp(filePath, mimeType, {
+        pageStrategy: "last",
+        approvalThreshold: 0.75,
+      });
+
+      // Persist result
+      const status = result.isApproved
+        ? "approved"
+        : result.stampDetected
+          ? "needs_review"
+          : "rejected";
+
+      await db.insert(documentVerifications).values({
+        documentType,
+        referenceId: referenceId ?? null,
+        filePath,
+        fileName,
+        mimeType,
+        status: status as any,
+        isApproved: result.isApproved,
+        confidence: result.confidence,
+        stampDetected: result.stampDetected,
+        signatureDetected: result.signatureDetected,
+        stampType: result.stampType,
+        signatureType: result.signatureType,
+        documentQuality: result.documentQuality,
+        approvalReason: result.approvalReason,
+        pagesAnalyzed: result.pagesAnalyzed,
+        analysisDetails: result.details,
+        verifiedBy: verifiedBy ?? null,
+      });
+
+      // Create notification
+      if (offerId) {
+        const notificationType = result.isApproved
+          ? "checklist_item_complete"
+          : "manual_review_required";
+
+        const title = result.isApproved
+          ? "Document approuvé — Cachet détecté"
+          : "Document nécessite une vérification — Cachet non détecté";
+
+        const message = result.isApproved
+          ? `Le document "${fileName}" a été approuvé automatiquement. Cachet officiel détecté (confiance: ${Math.round(result.confidence * 100)}%).`
+          : `Le document "${fileName}" n'a pas pu être approuvé. ${result.approvalReason}`;
+
+        await db.insert(notifications).values({
+          type: notificationType as any,
+          offerId,
+          supplierId: supplierId ?? null,
+          supplierResponseId: supplierResponseId ?? null,
+          title,
+          message,
+          isRead: false,
+        });
+      }
+
+      return {
+        fileName,
+        isApproved: result.isApproved,
+        confidence: result.confidence,
+        stampDetected: result.stampDetected,
+        status,
+      };
+    },
+    {
+      connection: redisConnection as any,
+      concurrency: 2,
+      lockDuration: 5 * 60 * 1000, // 5 min — vision API can be slow
     },
   );
 }

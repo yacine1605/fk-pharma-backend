@@ -444,7 +444,7 @@ router.post(
         success: true,
         message: "Brouillon sauvegardé",
         data: {
-          offerId: result.offerId,
+          offerId: result,
           attachments: (parsed.data.attachments ?? []).map((att) => ({
             path: att.filePath,
             url: toPublicUploadUrl(att.filePath),

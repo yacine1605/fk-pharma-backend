@@ -127,6 +127,13 @@
       "when": 1781288996900,
       "tag": "0017_tense_exiles",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782766837846,
+      "tag": "0018_sad_giant_girl",
+      "breakpoints": true
     }
   ]
 }

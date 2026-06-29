@@ -18,7 +18,7 @@ export const accountingService = {
             accountName: data.accountName,
             accountType: data.accountType,
             description: data.description || null,
-            balance: 0,
+            balance: "0",
             isActive: true,
             createdAt: new Date(),
             updatedAt: new Date(),

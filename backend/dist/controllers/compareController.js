@@ -1,4 +1,67 @@
 import fs from "fs";
+import { extractProductsFromPDF } from "../services/ocrService";
+function cleanString(str) {
+    return str
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // remove accents
+        .replace(/[^a-z0-9]/g, " ") // replace punctuation with spaces
+        .replace(/\s+/g, " ") // collapse spaces
+        .trim();
+}
+function calculateSimilarity(str1, str2) {
+    const words1 = cleanString(str1).split(" ").filter(w => w.length > 1);
+    const words2 = cleanString(str2).split(" ").filter(w => w.length > 1);
+    if (words1.length === 0 || words2.length === 0)
+        return 0;
+    const set1 = new Set(words1);
+    const set2 = new Set(words2);
+    let intersectionCount = 0;
+    for (const w of set1) {
+        if (set2.has(w))
+            intersectionCount++;
+    }
+    return (2 * intersectionCount) / (set1.size + set2.size);
+}
+function matchSupplier(referenceItems, supplierItems) {
+    const results = [];
+    const matchedSupplierItemIds = new Set();
+    for (const ref of referenceItems) {
+        let bestMatch = null;
+        let maxSim = 0;
+        for (const sup of supplierItems) {
+            if (matchedSupplierItemIds.has(sup.id))
+                continue;
+            const sim = calculateSimilarity(ref.designation, sup.designation);
+            if (sim > maxSim) {
+                maxSim = sim;
+                bestMatch = sup;
+            }
+        }
+        const threshold = 0.35;
+        if (bestMatch && maxSim >= threshold) {
+            matchedSupplierItemIds.add(bestMatch.id);
+            const compatibility = Math.round(maxSim * 100);
+            results.push({
+                referenceItem: ref,
+                supplierItem: bestMatch,
+                compatibility,
+                status: compatibility >= 70 ? "matched" : "partial",
+                reasons: compatibility >= 70 ? [] : ["Désignation légèrement différente"],
+            });
+        }
+        else {
+            results.push({
+                referenceItem: ref,
+                supplierItem: null,
+                compatibility: 0,
+                status: "missing",
+                reasons: ["Aucun produit correspondant trouvé"],
+            });
+        }
+    }
+    return results;
+}
 /**
  * POST /api/ai/compare-proformas
  * Body: multipart/form-data
@@ -11,8 +74,9 @@ import fs from "fs";
 export async function compareProformas(req, res) {
     try {
         const supplierNames = req.body.supplierNames || [];
-        const supplierFiles = req.files?.["supplierFiles"] || [];
-        const referenceFile = req.files?.["referenceFile"]?.[0];
+        const files = req.files;
+        const supplierFiles = (files && files["supplierFiles"]) || [];
+        const referenceFile = (files && files["referenceFile"]?.[0]);
         const backendAttachmentUrl = req.body.backendAttachmentUrl;
         console.log("[Compare] Début comparaison pour", supplierNames.length, "fournisseurs");
         // === 1. RÉCUPÉRATION DU CAHIER DE CHARGE ===

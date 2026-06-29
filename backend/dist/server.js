@@ -13,7 +13,7 @@ import suppliersRouter from "./routes/suppliers";
 import productsRouter from "./routes/products";
 import distributeurRouter from "./routes/distributeur";
 import accountingRouter from "./routes/accounting";
-import documentsRouter from "./routes/documents";
+// import documentsRouter from "./routes/documents";
 import settingsRouter from "./routes/settings";
 import userRouter from "./routes/user";
 // ── AI/Email Routers ──
@@ -26,10 +26,13 @@ import { mailRouter } from "./services/email/ai/mailRouter";
 import { filesRouter } from "./services/email/ai/filesrouter";
 import { queueStatusRouter } from "./services/email/ai/queu.route";
 import testDeadlineRouter from "./services/email/ai/test-deadline.routes";
+import tenderDocumentsRouter from "./routes/tender-documents";
+import signatureRouter from "./routes/signature";
 // ── Background Jobs / Workers / Cron ──
 import { startEmailWorkers } from "./services/email/ai/workers";
 import { startMailCron } from "./services/email/ai/mail.cron";
 import { startDeadlineCron } from "./services/email/ai/deadline.cron";
+import { startTenderExtractionWorker } from "./services/tender/tender-extraction.worker";
 const app = express();
 const PORT = ENV.PORT || 5000;
 // Enable CORS
@@ -59,7 +62,7 @@ app.use("/api/suppliers", authMiddleware, suppliersRouter);
 app.use("/api/products", authMiddleware, productsRouter);
 app.use("/api/distributors", authMiddleware, distributeurRouter);
 app.use("/api/accounting", authMiddleware, accountingRouter);
-app.use("/api/documents", authMiddleware, documentsRouter);
+// app.use("/api/documents", authMiddleware, documentsRouter);
 app.use("/api/settings", authMiddleware, settingsRouter);
 app.use("/api/users", authMiddleware, userRouter);
 // AI & Email endpoints
@@ -72,6 +75,8 @@ app.use("/api/mail", authMiddleware, mailRouter);
 app.use("/api/files", authMiddleware, filesRouter);
 app.use("/api/queue", authMiddleware, queueStatusRouter);
 app.use("/api/test-deadline", authMiddleware, testDeadlineRouter);
+app.use("/api/tender-documents", authMiddleware, tenderDocumentsRouter);
+app.use("/api/signature", authMiddleware, signatureRouter);
 // Global Error Handler
 app.use((err, req, res, next) => {
     console.error("Unhandled error:", err);
@@ -100,6 +105,12 @@ try {
 }
 catch (e) {
     console.error("[INIT] Failed to start Deadline Cron job:", e);
+}
+try {
+    startTenderExtractionWorker();
+}
+catch (e) {
+    console.error("[INIT] Failed to start Tender Extraction Worker:", e);
 }
 // Start Server
 app.listen(PORT, () => {

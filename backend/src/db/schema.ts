@@ -116,6 +116,11 @@ export const tenderDocStatusEnum = pgEnum("tender_doc_status", [
   "failed",
 ]);
 
+export const documentVerificationStatusEnum = pgEnum(
+  "document_verification_status",
+  ["pending", "approved", "rejected", "needs_review"],
+);
+
 export const tenderStatusEnum = pgEnum("tender_status", [
   "brouillon",
   "publie",
@@ -1461,6 +1466,67 @@ export const tenderChecklistRelations = relations(
     }),
     completedByUser: one(users, {
       fields: [tenderChecklist.completedBy],
+      references: [users.id],
+    }),
+  }),
+);
+
+// ─── Document Verifications (AI stamp/signature analysis results) ─────────────
+
+export const documentVerifications = pgTable(
+  "document_verifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    documentType: varchar("document_type", { length: 50 }).notNull(),
+    referenceId: uuid("reference_id"),
+    filePath: text("file_path").notNull(),
+    fileName: varchar("file_name", { length: 255 }).notNull(),
+    mimeType: varchar("mime_type", { length: 120 }),
+    status: documentVerificationStatusEnum("status")
+      .notNull()
+      .default("pending"),
+    isApproved: boolean("is_approved").notNull().default(false),
+    confidence: real("confidence").default(0),
+    stampDetected: boolean("stamp_detected").default(false),
+    signatureDetected: boolean("signature_detected").default(false),
+    stampType: varchar("stamp_type", { length: 50 }),
+    signatureType: varchar("signature_type", { length: 50 }),
+    documentQuality: varchar("document_quality", { length: 30 }),
+    approvalReason: text("approval_reason"),
+    pagesAnalyzed: integer("pages_analyzed").default(0),
+    analysisDetails: jsonb("analysis_details")
+      .$type<{
+        stampLocation?: string;
+        signatureLocation?: string;
+        hasCompanyInfo?: boolean;
+        hasDate?: boolean;
+      }>()
+      .default({}),
+    verifiedBy: uuid("verified_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("document_verifications_reference_id_idx").on(table.referenceId),
+    index("document_verifications_status_idx").on(table.status),
+    index("document_verifications_document_type_idx").on(table.documentType),
+  ],
+);
+
+export type DocumentVerification =
+  typeof documentVerifications.$inferSelect;
+export type NewDocumentVerification =
+  typeof documentVerifications.$inferInsert;
+
+export const documentVerificationsRelations = relations(
+  documentVerifications,
+  ({ one }) => ({
+    verifiedByUser: one(users, {
+      fields: [documentVerifications.verifiedBy],
       references: [users.id],
     }),
   }),
